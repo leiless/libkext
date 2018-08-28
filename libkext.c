@@ -4,7 +4,34 @@
 
 #include <sys/systm.h>
 #include <libkern/OSAtomic.h>
-#include "libkexti.h"
+#include "libkext.h"
+
+static void libkext_mref(int opt)
+{
+    static volatile SInt64 cnt = 0;
+    switch (opt) {
+    case 0:
+        if (OSDecrementAtomic64(&cnt) > 0) return;
+        break;
+    case 1:
+        if (OSIncrementAtomic64(&cnt) >= 0) return;
+        break;
+    case 2:
+        if (cnt == 0) return;
+        break;
+    }
+    /* You may use DEBUG macro for production */
+    panic("\n%s#L%d (potential memleak)  opt: %d cnt: %llu\n",
+            __func__, __LINE__, opt, cnt);
+}
+
+void *libkext_malloc(size_t size, int flags)
+{
+    /* _MALLOC `type' parameter is a joke */
+    void *addr = _MALLOC(size, M_TEMP, flags);
+    if (likely(addr != NULL)) libkext_mref(1);
+    return addr;
+}
 
 /**
  * Poor replica of _REALLOC() in XNU
@@ -27,7 +54,7 @@
  *  xnu/bsd/kern/kern_malloc.c@_REALLOC
  *  wiki.sei.cmu.edu/confluence/display/c/MEM04-C.+Beware+of+zero-length+allocations
  */
-void *libkext_realloc(void *addr0, size_t size0, size_t size1, int flags)
+static void *libkext_realloc2(void *addr0, size_t size0, size_t size1, int flags)
 {
     void *addr1;
 
@@ -58,7 +85,29 @@ out_exit:
     return addr1;
 }
 
-static int __kcb(int opt)
+void *libkext_realloc(void *addr0, size_t size0, size_t size1, int flags)
+{
+    void *addr1 = libkext_realloc2(addr0, size0, size1, flags);
+    if (!!addr0 ^ !!addr1) libkext_mref(!!addr1);
+    return addr1;
+}
+
+void libkext_mfree(void *addr)
+{
+    if (addr != NULL) libkext_mref(0);
+    _FREE(addr, M_TEMP);
+}
+
+/* XXX: call when all memory freed */
+void libkext_memck(void)
+{
+    libkext_mref(2);
+}
+
+/*
+ * TODO: the internal i should be exported
+ */
+static int kcb(int opt)
 {
     static volatile SInt i = 0;
     SInt read;
@@ -83,24 +132,24 @@ out_cas:
  * @return      -1 if failed to get
  *              refcnt before get o.w.
  */
-int get_kcb(void)
+int libkext_get_kcb(void)
 {
-    return __kcb(0);
+    return kcb(0);
 }
 
 /**
  * Decrease refcnt of activated kext callbacks
  * @return      refcnt before put o.w.
  */
-int put_kcb(void)
+int libkext_put_kcb(void)
 {
-    return __kcb(1);
+    return kcb(1);
 }
 
 /**
  * Read refcnt of activated kext callbacks
  */
-int read_kcb(void)
+int libkext_read_kcb(void)
 {
-    return __kcb(2);
+    return kcb(2);
 }

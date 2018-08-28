@@ -86,10 +86,13 @@
 #define LOG_BUG(fmt, ...)    LOG_TEMPL("BUG", fmt, ##__VA_ARGS__)
 #define LOG_NIL(fmt, ...)    (void) ((void) 0, ##__VA_ARGS__)
 
+void *libkext_malloc(size_t, int);
 void *libkext_realloc(void *, size_t, size_t, int);
+void libkext_mfree(void *);
+void libkext_memck(void);
 
-int get_kcb(void);
-int put_kcb(void);
-int read_kcb(void);
+int libkext_get_kcb(void);
+int libkext_put_kcb(void);
+int libkext_read_kcb(void);
 
 #endif /* LIBKEXT_H */
