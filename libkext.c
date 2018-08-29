@@ -158,7 +158,7 @@ int libkext_read_kcb(void)
 /**
  * Extract UUID load command from a Mach-O address
  *
- * @addre   Mach-O starting address
+ * @addr    Mach-O starting address
  * @return  NULL if failed  o.w. a new allocated buffer
  *          You need to free the buffer explicitly by libkext_mfree
  */
