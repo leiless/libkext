@@ -54,6 +54,8 @@
 #define kassertf(ex, fmt, ...)  (void) ((void) (ex), ##__VA_ARGS__)
 #endif
 
+#define kassert_nonnull(ptr) kassert(((void *) ptr) != NULL)
+
 /**
  * Branch predictions
  * see: linux/include/linux/compiler.h
@@ -94,5 +96,7 @@ void libkext_memck(void);
 int libkext_get_kcb(void);
 int libkext_put_kcb(void);
 int libkext_read_kcb(void);
+
+char *libkext_uuid(vm_address_t);
 
 #endif /* LIBKEXT_H */

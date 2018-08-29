@@ -4,6 +4,7 @@
 
 #include <sys/systm.h>
 #include <libkern/OSAtomic.h>
+#include <mach-o/loader.h>
 #include "libkext.h"
 
 static void libkext_mref(int opt)
@@ -152,4 +153,51 @@ int libkext_put_kcb(void)
 int libkext_read_kcb(void)
 {
     return kcb(2);
+}
+
+/**
+ * Extract UUID load command from a Mach-O address
+ *
+ * @addre   Mach-O starting address
+ * @return  NULL if failed  o.w. a new allocated buffer
+ *          You need to free the buffer explicitly by libkext_mfree
+ */
+char *libkext_uuid(vm_address_t addr)
+{
+    kassert_nonnull(addr);
+
+    char *s = NULL;
+    uint8_t *p = (void *) addr;
+    struct mach_header *h = (struct mach_header *) p;
+    struct load_command lc;
+    uint32_t m;
+    uint32_t i;
+
+    memcpy(&m, p, sizeof(m));
+    if (m == MH_MAGIC || m == MH_CIGAM) {
+        p += sizeof(struct mach_header);
+    } else if (m == MH_MAGIC_64 || m == MH_CIGAM_64) {
+        p += sizeof(struct mach_header_64);
+    } else {
+        goto out_bad;
+    }
+
+    for (i = 0; i < h->ncmds; i++) {
+        memcpy(&lc, p, sizeof(lc));
+        if (lc.cmd == LC_UUID) {
+            uint8_t u[16];
+            memcpy(u, p + sizeof(lc), sizeof(u));
+            s = libkext_malloc(37, M_NOWAIT);
+            if (s == NULL) goto out_bad;
+            (void) snprintf(s, 37, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+                            u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7],
+                            u[8], u[9], u[10], u[11], u[12], u[13], u[14], u[15]);
+            break;
+        } else {
+            p += lc.cmdsize;
+        }
+    }
+
+out_bad:
+    return s;
 }
