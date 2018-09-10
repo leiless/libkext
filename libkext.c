@@ -5,6 +5,8 @@
 #include <sys/systm.h>
 #include <libkern/OSAtomic.h>
 #include <mach-o/loader.h>
+#include <sys/vnode.h>
+
 #include "libkext.h"
 
 static void libkext_mref(int opt)
@@ -200,4 +202,61 @@ char *libkext_uuid(vm_address_t addr)
 
 out_bad:
     return s;
+}
+
+/**
+ * Read a file from local volume(won't follow symlink)
+ * @path        file path
+ * @buff        read buffer
+ * @len         length of read buffer
+ * @off         read offset
+ * @rd          bytes read(set if success)  OUT NULLABLE
+ * @return      0 if success  errno o.w.
+ */
+int file_read(const char *path,
+                unsigned char *buff,
+                size_t len,
+                off_t off,
+                size_t *read)
+{
+    errno_t e;
+    int flag = VNODE_LOOKUP_NOFOLLOW | VNODE_LOOKUP_NOCROSSMOUNT;
+    vnode_t vp;
+    vfs_context_t ctx;
+    uio_t auio;
+
+    kassert_nonnull(path);
+    kassert_nonnull(buff);
+
+    ctx = vfs_context_create(NULL);
+    if (ctx == NULL) {
+        e = ENOMEM;
+        goto out_oom;
+    }
+
+    auio = uio_create(1, off, UIO_SYSSPACE, UIO_READ);
+    if (auio == NULL) {
+        e = ENOMEM;
+        goto out_ctx;
+    }
+
+    e = uio_addiov(auio, (user_addr_t) buff, len);
+    if (e) goto out_uio;
+
+    e = vnode_lookup(path, flag, &vp, ctx);
+    if (e) goto out_uio;
+
+    e = VNOP_READ(vp, auio, IO_NOAUTH, ctx);
+    if (e) goto out_put;
+
+    if (read != NULL) *read = len - uio_resid(auio);
+
+out_put:
+    vnode_put(vp);
+out_uio:
+    uio_free(auio);
+out_ctx:
+    vfs_context_rele(ctx);
+out_oom:
+    return e;
 }

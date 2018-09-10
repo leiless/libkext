@@ -99,4 +99,6 @@ int libkext_read_kcb(void);
 
 char *libkext_uuid(vm_address_t);
 
+int file_read(const char *, unsigned char *, size_t, off_t, size_t *);
+
 #endif /* LIBKEXT_H */
