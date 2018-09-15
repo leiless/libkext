@@ -9,7 +9,7 @@
 
 #include "libkext.h"
 
-static void libkext_mref(int opt)
+static void libkext_mstat(int opt)
 {
     static volatile SInt64 cnt = 0;
     switch (opt) {
@@ -19,20 +19,22 @@ static void libkext_mref(int opt)
     case 1:
         if (OSIncrementAtomic64(&cnt) >= 0) return;
         break;
-    case 2:
+    default:
         if (cnt == 0) return;
         break;
     }
-    /* You may use DEBUG macro for production */
-    panic("\n%s#L%d (potential memleak)  opt: %d cnt: %llu\n",
-            __func__, __LINE__, opt, cnt);
+#ifdef DEBUG
+    panicf("FIXME: potential memleak  opt: %d cnt: %lld", opt, cnt);
+#else
+    LOG_BUG("FIXME: potential memleak  opt: %d cnt: %lld", opt, cnt);
+#endif
 }
 
 void *libkext_malloc(size_t size, int flags)
 {
     /* _MALLOC `type' parameter is a joke */
     void *addr = _MALLOC(size, M_TEMP, flags);
-    if (likely(addr != NULL)) libkext_mref(1);
+    if (likely(addr != NULL)) libkext_mstat(1);
     return addr;
 }
 
@@ -44,8 +46,8 @@ void *libkext_malloc(size_t size, int flags)
  *  _MALLOC and _FREE both supported  where _REALLOC not exported by Apple
  *
  * @param addr0     Address needed to reallocation
- * @param size0     Original size of the buffer
- * @param size1     New size
+ * @param sz0       Original size of the buffer
+ * @param sz1       New size
  * @param flags     Flags to malloc
  * @return          Return NULL on fail  O.w. new allocated buffer
  *
@@ -57,7 +59,7 @@ void *libkext_malloc(size_t size, int flags)
  *  xnu/bsd/kern/kern_malloc.c@_REALLOC
  *  wiki.sei.cmu.edu/confluence/display/c/MEM04-C.+Beware+of+zero-length+allocations
  */
-static void *libkext_realloc2(void *addr0, size_t size0, size_t size1, int flags)
+static void *libkext_realloc2(void *addr0, size_t sz0, size_t sz1, int flags)
 {
     void *addr1;
 
@@ -66,45 +68,44 @@ static void *libkext_realloc2(void *addr0, size_t size0, size_t size1, int flags
      * XXX  for such case, its original size must be zero
      */
     if (addr0 == NULL) {
-        kassert(size0 == 0);
-        addr1 = _MALLOC(size1, M_TEMP, flags);
+        kassert(sz0 == 0);
+        addr1 = _MALLOC(sz1, M_TEMP, flags);
         goto out_exit;
     }
 
-    if (unlikely(size1 == size0)) {
+    if (unlikely(sz1 == sz0)) {
         addr1 = addr0;
-        if (flags & M_ZERO) bzero(addr1, size1);
         goto out_exit;
     }
 
-    addr1 = _MALLOC(size1, M_TEMP, flags);
+    addr1 = _MALLOC(sz1, M_TEMP, flags);
     if (unlikely(addr1 == NULL))
         goto out_exit;
 
-    memcpy(addr1, addr0, MIN(size0, size1));
+    memcpy(addr1, addr0, MIN(sz0, sz1));
     _FREE(addr0, M_TEMP);
 
 out_exit:
     return addr1;
 }
 
-void *libkext_realloc(void *addr0, size_t size0, size_t size1, int flags)
+void *libkext_realloc(void *addr0, size_t sz0, size_t sz1, int flags)
 {
-    void *addr1 = libkext_realloc2(addr0, size0, size1, flags);
-    if (!!addr0 ^ !!addr1) libkext_mref(!!addr1);
+    void *addr1 = libkext_realloc2(addr0, sz0, sz1, flags);
+    if (!!addr0 ^ !!addr1) libkext_mstat(!!addr1);
     return addr1;
 }
 
 void libkext_mfree(void *addr)
 {
-    if (addr != NULL) libkext_mref(0);
+    if (addr != NULL) libkext_mstat(0);
     _FREE(addr, M_TEMP);
 }
 
 /* XXX: call when all memory freed */
-void libkext_memck(void)
+void libkext_massert(void)
 {
-    libkext_mref(2);
+    libkext_mstat(2);
 }
 
 /*

@@ -9,7 +9,9 @@
 
 #include <sys/types.h>
 
-#define KEXT_NAME "TOFILL"
+#ifndef __kextmake__
+#define KEXTNAME_S "TOFILL"
+#endif
 
 /*
  * Used to indicate unused function parameters
@@ -74,24 +76,22 @@
  *
  * see: xnu/osfmk/kern/printf.c#printf
  */
-#define LOG_TEMPL(lvl, fmt, ...) \
-    printf(KEXT_NAME " [" lvl "] " fmt "\n", ##__VA_ARGS__)
+#define LOG(fmt, ...)        printf(KEXTNAME_S ": " fmt "\n", ##__VA_ARGS__)
 
-#define LOG(fmt, ...)        printf(KEXT_NAME ": " fmt "\n", ##__VA_ARGS__)
-#ifdef DEBUG
-#define LOG_DBG(fmt, ...)    LOG_TEMPL("DBG", fmt, ##__VA_ARGS__)
-#else
-#define LOG_DBG(fmt, ...)    (void) ((void) 0, ##__VA_ARGS__)
-#endif
-#define LOG_INF(fmt, ...)    LOG_TEMPL("INF", fmt, ##__VA_ARGS__)
-#define LOG_ERR(fmt, ...)    LOG_TEMPL("ERR", fmt, ##__VA_ARGS__)
-#define LOG_BUG(fmt, ...)    LOG_TEMPL("BUG", fmt, ##__VA_ARGS__)
+#define LOG_INF(fmt, ...)    LOG("INF " fmt, ##__VA_ARGS__)
+#define LOG_ERR(fmt, ...)    LOG("ERR " fmt, ##__VA_ARGS__)
+#define LOG_BUG(fmt, ...)    LOG("BUG " fmt, ##__VA_ARGS__)
 #define LOG_NIL(fmt, ...)    (void) ((void) 0, ##__VA_ARGS__)
+#ifdef DEBUG
+#define LOG_DBG(fmt, ...)    LOG("DBG " fmt, ##__VA_ARGS__)
+#else
+#define LOG_DBG(fmt, ...)    LOG_NIL(fmt, ##__VA_ARGS__)
+#endif
 
 void *libkext_malloc(size_t, int);
 void *libkext_realloc(void *, size_t, size_t, int);
 void libkext_mfree(void *);
-void libkext_memck(void);
+void libkext_massert(void);
 
 int libkext_get_kcb(void);
 int libkext_put_kcb(void);

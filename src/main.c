@@ -1,7 +1,7 @@
 #include <mach/mach_types.h>
 #include <libkern/libkern.h>
 
-#ifdef __makefile__
+#ifdef __kextname__
 extern kern_return_t _start(kmod_info_t *, void *);
 extern kern_return_t _stop(kmod_info_t *, void *);
 
