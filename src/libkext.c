@@ -53,7 +53,7 @@ void *libkext_malloc(size_t size, int flags)
  *
  * NOTE:
  *  You should generally avoid allocate zero-length(new buffer size)
- *  the behaviour is implementation-defined  though in XNU it merely return NULL
+ *  the behaviour is implementation-defined(_MALLOC return NULL in such case)
  *
  * See:
  *  xnu/bsd/kern/kern_malloc.c@_REALLOC
@@ -65,7 +65,7 @@ static void *libkext_realloc2(void *addr0, size_t sz0, size_t sz1, int flags)
 
     /*
      * [sic] _REALLOC(NULL, ...) is equivalent to _MALLOC(...)
-     * XXX  for such case, its original size must be zero
+     * XXX  in such case, we require its original size must be zero
      */
     if (addr0 == NULL) {
         kassert(sz0 == 0);
@@ -92,7 +92,11 @@ out_exit:
 void *libkext_realloc(void *addr0, size_t sz0, size_t sz1, int flags)
 {
     void *addr1 = libkext_realloc2(addr0, sz0, sz1, flags);
-    if (!!addr0 ^ !!addr1) libkext_mstat(!!addr1);
+    /*
+     * If addr0 is nonnull yet addr1 null  the reference shouldn't change
+     *  since addr0 won't be free in such case
+     */
+    if (!addr0 && addr1) libkext_mstat(1);
     return addr1;
 }
 
