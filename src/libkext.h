@@ -101,4 +101,12 @@ char *libkext_uuid(vm_address_t);
 
 int file_read(const char *, unsigned char *, size_t, off_t, size_t *);
 
+/**
+ * kern_os_* family provides zero-out memory allocation
+ * see: xnu/libkern/c++/OSRuntime.cpp
+ */
+extern void *kern_os_malloc(size_t);
+extern void kern_os_free(void *);
+extern void *kern_os_realloc(void *, size_t);
+
 #endif /* LIBKEXT_H */
