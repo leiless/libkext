@@ -13,57 +13,33 @@
 #define KEXTNAME_S		"TOFILL"
 #endif
 
+#define readonly_extern     extern  /* Cheap annotation */
+
 /*
  * Used to indicate unused function parameters
  * see: <sys/cdefs.h>#__unused
  */
 #define UNUSED(arg0, ...)   (void) ((void) arg0, ##__VA_ARGS__)
 
-/* G for GCC-specific */
+/*
+ * G for GCC-specific
+ * see:
+ *  <sys/param.h>#MIN, MAX
+ *  <libkern/libkern.h>#min, max
+ */
 #define GMIN(a, b) ({       \
-    typeof (a) _a = (a);    \
-    typeof (b) _b = (b);    \
+    __typeof(a) _a = (a);   \
+    __typeof(b) _b = (b);   \
     _a < _b ? _a : _b;      \
 })
 
 #define GMAX(a, b) ({       \
-    typeof (a) _a = (a);    \
-    typeof (b) _b = (b);    \
+    __typeof(a) _a = (a);   \
+    __typeof(b) _b = (b);   \
     _a > _b ? _a : _b;      \
 })
 
-#define panicf(fmt, ...)                \
-    panic("\n" fmt "\n%s@%s#L%d\n\n",   \
-            ##__VA_ARGS__, __BASE_FILE__, __FUNCTION__, __LINE__)
-
-#ifdef DEBUG
-/*
- * NOTE: Do NOT use any multi-nary conditional/logical operator inside assertion
- *       like operators && || ?:  it's extremely EVIL
- *       Separate them  each statement per line
- */
-#define kassert(ex) (ex) ? (void) 0 : panicf("Assert `%s' failed", #ex)
-/**
- * @ex      the expression
- * @fmt     panic message format
- *
- * Example: kassertf(sz > 0, "Why size %zd nonpositive?", sz);
- */
-#define kassertf(ex, fmt, ...) \
-    (ex) ? (void) 0 : panicf("Assert `%s' failed: " fmt, #ex, ##__VA_ARGS__)
-#else
-#define kassert(ex)             (void) ((void) (ex))
-#define kassertf(ex, fmt, ...)  (void) ((void) (ex), ##__VA_ARGS__)
-#endif
-
-#define kassert_nonnull(ptr) kassert(((void *) ptr) != NULL)
-
-/**
- * Branch predictions
- * see: linux/include/linux/compiler.h
- */
-#define likely(x)       __builtin_expect(!!(x), 1)
-#define unlikely(x)     __builtin_expect(!!(x), 0)
+#define ARRAY_SIZE(a)       (sizeof(a) / sizeof(*a))
 
 /**
  * os_log() is only available on macOS 10.12 or newer
@@ -81,12 +57,63 @@
 #define LOG_INF(fmt, ...)    LOG("INF " fmt, ##__VA_ARGS__)
 #define LOG_ERR(fmt, ...)    LOG("ERR " fmt, ##__VA_ARGS__)
 #define LOG_BUG(fmt, ...)    LOG("BUG " fmt, ##__VA_ARGS__)
-#define LOG_NIL(fmt, ...)    (void) ((void) 0, ##__VA_ARGS__)
+#define LOG_OFF(fmt, ...)    (void) (0, ##__VA_ARGS__)
 #ifdef DEBUG
 #define LOG_DBG(fmt, ...)    LOG("DBG " fmt, ##__VA_ARGS__)
 #else
-#define LOG_DBG(fmt, ...)    LOG_NIL(fmt, ##__VA_ARGS__)
+#define LOG_DBG(fmt, ...)    LOG_OFF(fmt, ##__VA_ARGS__)
 #endif
+
+#define panicf(fmt, ...)                \
+    panic("\n" fmt "\n%s@%s#L%d\n\n",   \
+            ##__VA_ARGS__, __BASE_FILE__, __FUNCTION__, __LINE__)
+
+#ifdef DEBUG
+/*
+ * NOTE: Do NOT use any multi-nary conditional/logical operator inside assertion
+ *       like operators && || ?:  it's extremely EVIL
+ *       Separate them  each statement per line
+ */
+#define kassert(ex) (ex) ? (void) 0 : panicf("Assert `%s' failed", #ex)
+
+/**
+ * @ex      the expression
+ * @fmt     panic message format
+ *
+ * Example: kassertf(sz > 0, "Why size %zd nonpositive?", sz);
+ */
+#define kassertf(ex, fmt, ...) \
+    (ex) ? (void) 0 : panicf("Assert `%s' failed: " fmt, #ex, ##__VA_ARGS__)
+#else
+#define kassert(ex) (ex) ? (void) 0 : LOG_BUG("Assert `%s' failed", #ex)
+
+#define kassertf(ex, fmt, ...) \
+    (ex) ? (void) 0 : LOG_BUG("Assert `%s' failed: " fmt, #ex, ##__VA_ARGS__)
+#endif
+
+#define kassert_nonnull(ptr) kassert(((void *) ptr) != NULL)
+
+/**
+ * Branch predictions
+ * see: linux/include/linux/compiler.h
+ */
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
+
+/**
+ * Compile-time assertion  see: linux/arch/x86/boot/boot.h
+ */
+#ifdef DEBUG
+#define BUILD_BUG_ON(cond)      UNUSED(sizeof(char[-!(cond)]))
+#else
+#define BUILD_BUG_ON(cond)      UNUSED(cond)
+#endif
+
+/**
+ * Capital Q stands for quick
+ * XXX: should only used for `char[]'  NOT `char *'
+ */
+#define QSTRLEN(s)          (sizeof(s) - 1)
 
 void *libkext_malloc(size_t, int);
 void *libkext_realloc(void *, size_t, size_t, int);
