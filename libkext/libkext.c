@@ -260,11 +260,11 @@ void libkext_format_uuid_string(const uuid_t u, uuid_string_t output)
  * @buff        read buffer
  * @len         length of read buffer
  * @off         read offset
- * @rd          bytes read(set if success)  OUT NULLABLE
+ * @read        (OUT) bytes read(set if success)
  * @return      0 if success  errno o.w.
  */
 int libkext_file_read(const char *path, unsigned char *buff,
-                        size_t len, off_t off, size_t *read)
+                    size_t len, off_t off, size_t * __nullable read)
 {
     errno_t e;
     int flag = VNODE_LOOKUP_NOFOLLOW | VNODE_LOOKUP_NOCROSSMOUNT;
@@ -276,25 +276,25 @@ int libkext_file_read(const char *path, unsigned char *buff,
     kassert_nonnull(buff);
 
     ctx = vfs_context_create(NULL);
-    if (ctx == NULL) {
+    if (unlikely(ctx == NULL)) {
         e = ENOMEM;
         goto out_oom;
     }
 
     auio = uio_create(1, off, UIO_SYSSPACE, UIO_READ);
-    if (auio == NULL) {
+    if (unlikely(auio == NULL)) {
         e = ENOMEM;
         goto out_ctx;
     }
 
     e = uio_addiov(auio, (user_addr_t) buff, len);
-    if (e) goto out_uio;
+    if (unlikely(e)) goto out_uio;
 
     e = vnode_lookup(path, flag, &vp, ctx);
-    if (e) goto out_uio;
+    if (unlikely(e)) goto out_uio;
 
     e = VNOP_READ(vp, auio, IO_NOAUTH, ctx);
-    if (e) goto out_put;
+    if (unlikely(e)) goto out_put;
 
     if (read != NULL) *read = len - uio_resid(auio);
 
