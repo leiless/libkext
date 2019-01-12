@@ -110,3 +110,4 @@ extern void kern_os_free(void *);
 extern void *kern_os_realloc(void *, size_t);
 
 #endif /* LIBKEXT_H */
+
