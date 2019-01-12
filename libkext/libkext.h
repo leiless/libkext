@@ -9,8 +9,8 @@
 
 #include <sys/types.h>
 
-#ifndef __kextmake__
-#define KEXTNAME_S "TOFILL"
+#ifndef __kext_makefile__
+#define KEXTNAME_S		"TOFILL"
 #endif
 
 /*
