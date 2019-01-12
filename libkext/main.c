@@ -1,5 +1,6 @@
 #include <mach/mach_types.h>
 #include <libkern/libkern.h>
+#include "libkext.h"
 
 #ifdef __kext_makefile__
 extern kern_return_t _start(kmod_info_t *, void *);
