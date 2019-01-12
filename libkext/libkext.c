@@ -112,27 +112,44 @@ void libkext_massert(void)
     libkext_mstat(2);
 }
 
-/*
- * TODO: the internal i should be exported
+#define KCB_OPT_GET         0
+#define KCB_OPT_PUT         1
+#define KCB_OPT_READ        2
+#define KCB_OPT_INVALIDATE  3
+
+/**
+ * kcb stands for kernel callbacks  a global refcnt used in kext
+ * @return      -1 if kcb invalidated
  */
 static int kcb(int opt)
 {
     static volatile SInt i = 0;
-    SInt read;
+    static struct timespec ts = {0, 1e+6};  /* 100ms */
+    SInt rd;
+
     switch (opt) {
-    case 0:
-out_cas:
-        read = i;
-        if (read < 0) return -1;
-        if (!OSCompareAndSwap(read, read + 1, &i))
-            goto out_cas;
-        return read;
-    case 1:
-        read = OSDecrementAtomic(&i);
-        kassert(read > 0);
-        return read;
+    case KCB_OPT_GET:
+        do {
+            if ((rd = i) < 0) break;
+        } while (!OSCompareAndSwap(rd, rd + 1, &i));
+        return rd;
+
+    case KCB_OPT_PUT:
+        rd = OSDecrementAtomic(&i);
+        kassert(rd > 0);
+        return rd;
+
+    case KCB_OPT_INVALIDATE:
+        do {
+            while (i > 0) msleep((void *) &i, NULL, PWAIT, NULL, &ts);
+        } while (!OSCompareAndSwap(0, (UInt32) -1, &i));
+        /* Fall through */
+
+    case KCB_OPT_READ:
+        return i;
     }
-    return i;
+
+    panicf("invalid option  opt: %d", i);
 }
 
 /**
@@ -142,7 +159,7 @@ out_cas:
  */
 int libkext_get_kcb(void)
 {
-    return kcb(0);
+    return kcb(KCB_OPT_GET);
 }
 
 /**
@@ -151,7 +168,7 @@ int libkext_get_kcb(void)
  */
 int libkext_put_kcb(void)
 {
-    return kcb(1);
+    return kcb(KCB_OPT_PUT);
 }
 
 /**
@@ -159,7 +176,12 @@ int libkext_put_kcb(void)
  */
 int libkext_read_kcb(void)
 {
-    return kcb(2);
+    return kcb(KCB_OPT_READ);
+}
+
+void libkext_invalidate_kcb(void)
+{
+    (void) kcb(KCB_OPT_INVALIDATE);
 }
 
 /**
