@@ -10,7 +10,7 @@
 #include <sys/types.h>
 
 #ifndef __kext_makefile__
-#define KEXTNAME_S		"TOFILL"
+#define KEXTNAME_S		"libkext"   /* XXX: replace with your kext name */
 #endif
 
 #define readonly_extern     extern  /* Cheap annotation */
