@@ -132,12 +132,12 @@ static int kcb(int opt)
         do {
             if ((rd = i) < 0) break;
         } while (!OSCompareAndSwap(rd, rd + 1, &i));
-        return rd;
+        break;
 
     case KCB_OPT_PUT:
         rd = OSDecrementAtomic(&i);
         kassert(rd > 0);
-        return rd;
+        break;
 
     case KCB_OPT_INVALIDATE:
         do {
@@ -146,10 +146,15 @@ static int kcb(int opt)
         /* Fall through */
 
     case KCB_OPT_READ:
-        return i;
+        rd = i;
+        break;
+
+    default:
+        panicf("invalid option  opt: %d", i);
+        rd = -1;    /* Dismiss switch default uninitialized warning */
     }
 
-    panicf("invalid option  opt: %d", i);
+    return rd;
 }
 
 /**
@@ -188,47 +193,49 @@ void libkext_invalidate_kcb(void)
  * Extract UUID load command from a Mach-O address
  *
  * @addr    Mach-O starting address
- * @return  NULL if failed  o.w. a new allocated buffer
- *          You need to free the buffer explicitly by libkext_mfree
+ * @output  UUID string output
+ * @return  0 if success  errno o.w.
  */
-char *libkext_uuid(vm_address_t addr)
+int libkext_vma_uuid(vm_address_t addr, uuid_string_t output)
 {
     kassert_nonnull(addr);
+    kassert_nonnull(output);
 
-    char *s = NULL;
+    int e = 0;
     uint8_t *p = (void *) addr;
-    struct mach_header *h = (struct mach_header *) p;
-    struct load_command lc;
-    uint32_t m;
+    struct mach_header *h = (struct mach_header *) addr;
+    struct load_command *lc;
     uint32_t i;
+    uint8_t *u;
 
-    memcpy(&m, p, sizeof(m));
-    if (m == MH_MAGIC || m == MH_CIGAM) {
+    kassert_nonnull(addr);
+
+    if (h->magic == MH_MAGIC || h->magic == MH_CIGAM) {
         p += sizeof(struct mach_header);
-    } else if (m == MH_MAGIC_64 || m == MH_CIGAM_64) {
+    } else if (h->magic == MH_MAGIC_64 || h->magic == MH_CIGAM_64) {
         p += sizeof(struct mach_header_64);
     } else {
+        e = EBADMACHO;
         goto out_bad;
     }
 
-    for (i = 0; i < h->ncmds; i++) {
-        memcpy(&lc, p, sizeof(lc));
-        if (lc.cmd == LC_UUID) {
-            uint8_t u[16];
-            memcpy(u, p + sizeof(lc), sizeof(u));
-            s = libkext_malloc(37, M_NOWAIT);
-            if (s == NULL) goto out_bad;
-            (void) snprintf(s, 37, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-                            u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7],
-                            u[8], u[9], u[10], u[11], u[12], u[13], u[14], u[15]);
-            break;
-        } else {
-            p += lc.cmdsize;
+    for (i = 0; i < h->ncmds; i++, p += lc->cmdsize) {
+        lc = (struct load_command *) p;
+        if (lc->cmd == LC_UUID) {
+            u = p + sizeof(*lc);
+
+            (void) snprintf(output, sizeof(uuid_string_t),
+                    "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+                    "%02x%02x-%02x%02x%02x%02x%02x%02x",
+                    u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7],
+                    u[8], u[9], u[10], u[11], u[12], u[13], u[14], u[15]);
+            goto out_bad;
         }
     }
 
+    e = ENOENT;
 out_bad:
-    return s;
+    return e;
 }
 
 /**

@@ -98,7 +98,7 @@ int libkext_put_kcb(void);
 int libkext_read_kcb(void);
 void libkext_invalidate_kcb(void);
 
-char *libkext_uuid(vm_address_t);
+int libkext_vma_uuid(vm_address_t, uuid_string_t);
 
 int file_read(const char *, unsigned char *, size_t, off_t, size_t *);
 
