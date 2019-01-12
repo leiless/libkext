@@ -239,6 +239,22 @@ out_bad:
 }
 
 /**
+ * Format UUID data into human readable string
+ * @u       UUID data
+ * @output  UUID string output
+ */
+void libkext_format_uuid_string(const uuid_t u, uuid_string_t output)
+{
+    kassert_nonnull(u);
+    kassert_nonnull(output);
+
+    (void) snprintf(output, sizeof(uuid_string_t),
+        "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+            u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7],
+            u[8], u[9], u[10], u[11], u[12], u[13], u[14], u[15]);
+}
+
+/**
  * Read a file from local volume(won't follow symlink)
  * @path        file path
  * @buff        read buffer
@@ -247,11 +263,8 @@ out_bad:
  * @rd          bytes read(set if success)  OUT NULLABLE
  * @return      0 if success  errno o.w.
  */
-int file_read(const char *path,
-                unsigned char *buff,
-                size_t len,
-                off_t off,
-                size_t *read)
+int libkext_file_read(const char *path, unsigned char *buff,
+                        size_t len, off_t off, size_t *read)
 {
     errno_t e;
     int flag = VNODE_LOOKUP_NOFOLLOW | VNODE_LOOKUP_NOCROSSMOUNT;

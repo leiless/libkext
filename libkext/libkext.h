@@ -99,8 +99,9 @@ int libkext_read_kcb(void);
 void libkext_invalidate_kcb(void);
 
 int libkext_vma_uuid(vm_address_t, uuid_string_t);
+void libkext_format_uuid_string(const uuid_t, uuid_string_t);
 
-int file_read(const char *, unsigned char *, size_t, off_t, size_t *);
+int libkext_file_read(const char *, unsigned char *, size_t, off_t, size_t *);
 
 /**
  * kern_os_* family provides zero-out memory allocation
