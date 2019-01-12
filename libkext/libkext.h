@@ -96,6 +96,7 @@ void libkext_massert(void);
 int libkext_get_kcb(void);
 int libkext_put_kcb(void);
 int libkext_read_kcb(void);
+void libkext_invalidate_kcb(void);
 
 char *libkext_uuid(vm_address_t);
 
