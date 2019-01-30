@@ -1,7 +1,7 @@
 /**
  * Minimalist's kernel extension library
  *
- * Created 18H26  lynnl
+ * Created 180826  lynnl
  */
 
 #ifndef LIBKEXT_H

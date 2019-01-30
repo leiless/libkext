@@ -1,5 +1,5 @@
 /**
- * Created 18H26
+ * Created 180826 lynnl
  */
 
 #include <sys/systm.h>
@@ -25,6 +25,7 @@ static void libkext_mstat(int opt)
     }
 #ifdef DEBUG
     panicf("FIXME: potential memleak  opt: %d cnt: %lld", opt, cnt);
+    __builtin_unreachable();
 #else
     LOG_BUG("FIXME: potential memleak  opt: %d cnt: %lld", opt, cnt);
 #endif
@@ -151,7 +152,7 @@ static int kcb(int opt)
 
     default:
         panicf("invalid option  opt: %d", i);
-        rd = -1;    /* Dismiss switch default uninitialized warning */
+        __builtin_unreachable();
     }
 
     return rd;
