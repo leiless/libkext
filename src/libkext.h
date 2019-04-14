@@ -20,7 +20,7 @@
  * Used to indicate unused function parameters
  * see: <sys/cdefs.h>#__unused
  */
-#define UNUSED(arg0, ...)   (void) ((void) arg0, ##__VA_ARGS__)
+#define UNUSED(e, ...)      (void) ((void) (e), ##__VA_ARGS__)
 
 /*
  * G for GCC-specific
@@ -98,14 +98,15 @@
  * Branch predictions
  * see: linux/include/linux/compiler.h
  */
-#define likely(x)       __builtin_expect(!!(x), 1)
-#define unlikely(x)     __builtin_expect(!!(x), 0)
+#define likely(x)       __builtin_expect(!(x), 0)
+#define unlikely(x)     __builtin_expect(!(x), 1)
 
 /**
- * Compile-time assertion  see: linux/arch/x86/boot/boot.h
+ * Compile-time assurance  see: linux/arch/x86/boot/boot.h
+ * Will fail build if condition yield true
  */
 #ifdef DEBUG
-#define BUILD_BUG_ON(cond)      UNUSED(sizeof(char[-!(cond)]))
+#define BUILD_BUG_ON(cond)      UNUSED(sizeof(char[-!!(cond)]))
 #else
 #define BUILD_BUG_ON(cond)      UNUSED(cond)
 #endif
