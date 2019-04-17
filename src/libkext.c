@@ -182,13 +182,19 @@ int libkext_put_kcb(void)
 }
 
 /**
- * Read refcnt of activated kext callbacks
+ * Read refcnt of activated kext callbacks(rarely used)
+ * @return      a snapshot of refcnt
  */
 int libkext_read_kcb(void)
 {
     return kcb(KCB_OPT_READ);
 }
 
+/**
+ * Invalidate kcb counter
+ * You should call this function only once after all spawn threads unattached
+ * Will block until all threads stopped and counter invalidated
+ */
 void libkext_invalidate_kcb(void)
 {
     (void) kcb(KCB_OPT_INVALIDATE);
