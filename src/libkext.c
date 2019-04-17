@@ -120,13 +120,15 @@ void libkext_massert(void)
 
 /**
  * kcb stands for kernel callbacks  a global refcnt used in kext
- * @return      -1 if kcb invalidated
+ * @return      -1(actually negative value) if kcb invalidated
  */
-static int kcb(int opt)
+static inline int kcb(int opt)
 {
     static volatile SInt i = 0;
     static struct timespec ts = {0, 1e+6};  /* 100ms */
     SInt rd;
+
+    BUILD_BUG_ON(sizeof(SInt) != sizeof(int));
 
     switch (opt) {
     case KCB_OPT_GET:
@@ -137,12 +139,14 @@ static int kcb(int opt)
 
     case KCB_OPT_PUT:
         rd = OSDecrementAtomic(&i);
-        kassert(rd > 0);
+        kassertf(rd > 0, "non-positive counter %d", i);
         break;
 
     case KCB_OPT_INVALIDATE:
         do {
-            while (i > 0) msleep((void *) &i, NULL, PWAIT, NULL, &ts);
+            rd = i;
+            kassertf(rd >= 0, "invalidate kcb more than once?!  i: %d", rd);
+            while (i > 0) (void) msleep((void *) &i, NULL, PWAIT, NULL, &ts);
         } while (!OSCompareAndSwap(0, (UInt32) -1, &i));
         /* Fall through */
 
@@ -151,7 +155,7 @@ static int kcb(int opt)
         break;
 
     default:
-        panicf("invalid option  opt: %d", i);
+        panicf("invalid option  opt: %d i: %d", opt, i);
         __builtin_unreachable();
     }
 
